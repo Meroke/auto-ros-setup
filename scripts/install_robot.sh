@@ -294,11 +294,11 @@ main() {
     case $choice in
         1)  # 全流程安装
             log INFO "启动全自动安装流程"
-            #install_ros_core
+            install_ros_core
             check_filesystem
-            #setup_udev_rules
-            #configure_rosdep
-            #install_project_components
+            setup_udev_rules
+            configure_rosdep
+            install_project_components
             check_fstab_entry
             ;;
         2)  # 仅安装ROS

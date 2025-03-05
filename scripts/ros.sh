@@ -85,11 +85,43 @@ install_ros_base() {
     fi
 }
 
+get_ros_ip() {
+    # 定义接口匹配规则和过滤条件
+    local wifi_regex='^(wlan|wlp|wlo|wlx|ra|wifi)[0-9]+'  # 扩展WiFi接口前缀匹配
+    local loopback_regex='^127\.|^169\.254\.'            # 排除回环和链路本地地址
+    local target_ip="127.0.0.1"                          # 默认回环地址
+    
+    # 单次获取所有IPv4地址并按优先级排序
+    local ip_list=$(ip -o -4 addr show 2>/dev/null | awk -v wifi="$wifi_regex" '
+        {
+            # 提取接口名、地址族、CIDR格式IP
+            iface = $2
+            af = $3
+            cidr_ip = $4
+        }
+        # 仅处理IPv4非回环地址
+        af == "inet" && cidr_ip !~ /'"$loopback_regex"'/ {
+            split(cidr_ip, ip_parts, "/")
+            ip = ip_parts[1]
+            
+            # 优先级标记: WiFi接口标记2，其他标记1
+            priority = (iface ~ wifi) ? 2 : 1
+            printf "%d %s\n", priority, ip
+        }' | sort -k1nr -k2 | cut -d' ' -f2)  # 按优先级降序排列
+    
+    # 选择第一个有效IP
+    if [ -n "$ip_list" ]; then
+        target_ip=$(echo "$ip_list" | head -n1)
+    fi
+    
+    echo "$target_ip"
+}
+
 # 单机ROS环境配置
 setup_ros_env() {
     local bashrc_file="${HOME}/.bashrc"
     local marker="# ROS single-machine configuration"
-    local ros_ip="127.0.0.1"
+    local ros_ip=$(get_ros_ip)
     
     # 定义环境变量配置
     local env_config=(
@@ -100,7 +132,7 @@ setup_ros_env() {
     log INFO "配置单机ROS环境..."
     
     # 检查是否已存在配置
-    if grep -qF "ROS_MASTER_URI=http://127.0.0.1:11311" "$bashrc_file"; then
+    if grep -qF "ROS_MASTER_URI=http://${ros_ip}:11311" "$bashrc_file"; then
         log INFO "[已存在] 单机ROS配置无需修改"
         return 0
     fi
