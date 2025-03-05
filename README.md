@@ -21,25 +21,28 @@ AutoRosSetup 是一个专注于ROS（Robot Operating System）自动配置的开
 3. 在jetson nano主目录下，有scripts以下脚本文件
 
 脚本文件：
+```
 scripts
 ├── install_robot.sh  启动项；挂载sd卡
 ├── logging_lib.sh    日志输出配置
-├── robot_robot.sh   安装项目依赖并编译
-├── [ros.sh](http://ros.sh/)                 安装ros-base
-├── [rosdep.sh](http://rosdep.sh/)          配置rosdep
+├── robot_robot.sh    安装项目依赖并编译
+├── ros.sh            安装ros-base
+├── rosdep.sh         配置rosdep
 └── uninstall_ros.sh  卸载ros和build, devel
+```
 
 项目文件夹：
-
+```
 robot_robot/
 ├── build
 ├── cartographer_lib  cartographer 依赖和源码
-├── cfg                       配置文件
+├── cfg               配置文件
 ├── CMakeFiles      
 ├── devel 
 ├── logs
-├── src                       项目源码
+├── src               项目源码
 └── YDLidar-SDK       雷达依赖
+```
 
 `注意：针对RK3588鲁班猫板子的网络连接，设置静态ip时，必须添加DNS 8.8.8.8，否则无法上网。`
 
