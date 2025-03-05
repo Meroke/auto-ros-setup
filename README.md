@@ -154,7 +154,6 @@ sudo service udev restart
 
 ![image.png](attachment:cfefed79-8d18-4d9c-8fcd-b2ce39f5b514:image.png)
 
-                        jetson nano 串口(开头都是1-2.)                                              rk3588 串口   
 
 ### 三、配置rosdep
 
@@ -183,7 +182,7 @@ rosdep的源是github源，更新容易失败，需要进行换成国内源：
 首先到/usr/lib/python2.7/dist-packages里寻找
 
 ```bash
-./rosdistro/**init**.py
+./rosdistro/init.py
 ./rosdep2/gbpdistro_support.py
 ./rosdep2/sources_list.py
 ./rosdep2/rep3.py

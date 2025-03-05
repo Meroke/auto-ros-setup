@@ -63,9 +63,9 @@ done
 
 # 初始化rosdep
 sudo rm -f /etc/ros/rosdep/sources.list.d/20-default.list
-log INFO -e "\n正在初始化rosdep..."
+log INFO "\n正在初始化rosdep..."
 if ! sudo rosdep init; then
-    log INFO "检测到rosdep已初始化，跳过此步骤"
+    log INFO "rosdep失败，请检查网络问题"
 fi
 
 # 更新rosdep数据库（最多重试3次）
@@ -73,16 +73,16 @@ MAX_RETRY=3
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
     if rosdep update; then
-        log INFO -e "\n\e[32m操作成功完成！\e[0m"
+        log INFO "\n\e[32m操作成功完成！\e[0m"
         exit 0
     else
         ((RETRY_COUNT++))
-        log ERROR -e "\n\e[33m更新失败，正在重试($RETRY_COUNT/$MAX_RETRY)...\e[0m"
+        log ERROR "\n\e[33m更新失败，正在重试($RETRY_COUNT/$MAX_RETRY)...\e[0m"
         sleep 5
     fi
 done
 
-log ERROR -e "\n\e[31m错误：更新失败，请检查以下内容："
+log ERROR "\n\e[31m错误：更新失败，请检查以下内容："
 log ERROR "1. 确保网络连接正常"
 log ERROR "2. 检查gitee镜像是否可用"
 log ERROR "3. 尝试手动执行：rosdep update --include-eol-distros"

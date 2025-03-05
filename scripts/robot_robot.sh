@@ -58,7 +58,7 @@ install_system_deps() {
         # gscam
         libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev 
         # cartographer_ros
-        libgmock-dev
+        # libgmock-dev
     )
     # 如果ROS_DISTRO为noetic，则安装python3-sphinx，python3-wstool
     if [ "$ROS_DISTRO" = "noetic" ]; then
@@ -442,7 +442,7 @@ main() {
     setup_bashrc
 
     sudo ldconfig
-    log INFO "安装完成!\n工作空间路径: ${CONFIG[base_dir]}\n请执行: source devel/setup.bash"
+    log INFO "安装完成!\n工作空间路径: ${CONFIG[base_dir]}\n"
 }
 
 main "$@"

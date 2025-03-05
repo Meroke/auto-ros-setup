@@ -37,30 +37,53 @@ SD_CARD_MOUNT_POINT="/mnt/sdcard"
 # 子脚本执行器，默认为 bash， 可选 source
 SCRIPT_EXECUTOR="${2:-bash}"
 
+start_time=$(date +%s.%3N)
+
+# 定义退出时触发的函数
+on_exit() {
+    end_time=$(date +%s.%3N)
+    elapsed=$(echo "scale=3; $end_time - $start_time" | bc)
+    
+    # 计算分钟和剩余秒数（含小数）
+    minutes=$(echo "scale=0; $elapsed / 60" | bc)
+    seconds=$(echo "scale=1; $elapsed - ($minutes * 60)" | bc)
+    
+    # 格式化输出
+    if [ "$minutes" -gt 0 ]; then
+        echo "脚本总耗时：${minutes}分${seconds}秒"
+    else
+        echo "脚本总耗时：${seconds}秒"
+    fi
+}
+trap on_exit EXIT
 
 # ============================== 工具层 ==============================
-
 detect_sd_card() {
     log INFO "动态检测SD卡设备..."
-    
-    # 使用键值对格式解析设备信息
-    local device_info=$(lsblk -o NAME,FSTYPE,MOUNTPOINT,TYPE -Ppn 2>/dev/null | \
-        awk -F'"' '$4 == "ext4" && $6 == "" && ($8 == "part" || $8 == "disk") {print; exit}')
 
-    # 提取设备名（完整路径如 /dev/mmcblk1）
-    local device=$(echo "$device_info" | awk -F'"' '{print $2}' | sed 's/NAME=//')
+    # 使用键值对格式解析设备信息（移除MOUNTPOINT筛选条件）
+    local device_info=$(lsblk -p -o NAME,FSTYPE,MOUNTPOINT,TYPE -Ppn 2>/dev/null | \
+        awk -F'"' '$4 == "ext4" && ($8 == "part" || $8 == "disk") && $2 ~ /\/dev\/mmcblk1/ {print}')
+    local device_name=$(echo "$device_info" | awk -F'"' '{sub(/^NAME=/,"",$2); print $2}')
+    log DEBUG "device_name = ${device_name}"
+    local device_type=$(echo "$device_info" | awk -F'"' '{sub(/^TYPE=/,"",$8); print $8}')
 
-    # 提取设备类型（disk/part）
-    local device_type=$(echo "$device_info" | awk -F'"' '{print $8}' | sed 's/TYPE=//')
-
-    if [[ -n "$device" && -n "$device_type" ]]; then
-        echo "$device"  # 输出完整设备路径（如 /dev/mmcblk1）
-        log INFO "检测到未挂载的ext4设备: [类型:${device_type}] ${device}"
+    if [[ -n "$device_name" && -n "$device_type" ]]; then
+        # 新增二次挂载状态检查逻辑 [4,7](@ref)
+        local current_mount=$(lsblk -no MOUNTPOINT "$device_name" 2>/dev/null)
+        if [[ -n "$current_mount" ]]; then
+            log WARN "设备 ${device_name} 已挂载到 $current_mount，不符合未挂载要求"
+            echo ${device_name}  # 返回设备名
+            return 1
+        else
+            log INFO "检测到未挂载的ext4设备: [类型:${device_type}] ${device_name}"
+            echo ${device_name}  # 返回设备名
+            return 0
+        fi
     else
         log WARN "未找到符合要求的ext4设备（需满足以下条件）"
         log WARN "- 文件系统类型: ext4"
         log WARN "- 设备类型: 磁盘(disk)或分区(part)"
-        log WARN "- 挂载状态: 未挂载"
         return 1
     fi
 }
@@ -71,7 +94,7 @@ check_filesystem() {
     # 动态检测设备路径（新增挂载点状态检查）
     local target_device
     if ! target_device=$(detect_sd_card); then
-        # 关键修改点：检查挂载点是否已被其他设备占用
+        # 检查挂载点是否已被其他设备占用
         if mount | grep -q "${SD_CARD_MOUNT_POINT}"; then
             log INFO "挂载点 ${SD_CARD_MOUNT_POINT} 已被使用, 继续执行"
             return 0
@@ -175,32 +198,30 @@ EOF
 
 check_fstab_entry() {
     log INFO "检查SD卡挂载是否持久化..."
-    # 定义目标条目（注意空格和参数顺序）
-    local entry="/dev/mmcblk1p1 /mnt/sdcard ext4 defaults,noatime 0 0"
+    # 使用UUID替代设备名
+    local device_info=$(lsblk -p -o NAME,FSTYPE,MOUNTPOINT,TYPE,UUID -Ppn 2>/dev/null | \
+        awk -F'"' '$4 == "ext4" && ($8 == "part" || $8 == "disk") && $2 ~ /\/dev\/mmcblk1/ {print}')
+    local device_uuid=$(echo "$device_info" | awk -F'"' '{print $10}')
     
-    # 转换为兼容正则表达式（处理任意数量空格/制表符）
-    local regex_pattern=$(echo "$entry" | sed 's/[[:space:]]+/[[:space:]]+/g')
+    # 检查UUID有效性
+    if [[ -z "$device_uuid" ]]; then
+        log ERROR "未找到符合条件的ext4设备"
+        return 1
+    fi
     
-    # 带权限检查的精确匹配
+    # 构造fstab条目（单行无换行符）
+    local entry="UUID=${device_uuid} ${SD_CARD_MOUNT_POINT} ext4 defaults,noatime 0 0"
+    local regex_pattern=$(echo "${entry}" | sed 's/ /[[:space:]]+/g')
+
     if sudo grep -qP "^\s*${regex_pattern}\s*$" /etc/fstab 2>/dev/null; then
-        log INFO "[SUCCESS] SD卡挂载已持久化, 位于/etc/fstab" >&2
+        log DEBUG "[SUCCESS] 挂载条目 ${entry} 已存在"
         return 0
     else
-        # 错误处理分支
-        if [[ $? -eq 2 ]]; then
-            log ERROR "/etc/fstab 文件不存在或权限不足" >&2
-            return 1
-        else
-            log INFO "条目未找到，正在自动添加..." >&2
-            echo "$entry" | sudo tee -a /etc/fstab >/dev/null
-            if [[ $? -eq 0 ]]; then
-                log INFO "[SUCCESS] 已添加条目: ${entry} 到/etc/fstab" >&2  # 修改此处
-                return 0
-            else
-                log ERROR "[FAILED] 添加条目失败" >&2
-                return 1
-            fi
-        fi
+        # 创建挂载点目录
+        sudo mkdir -p "${SD_CARD_MOUNT_POINT}" || { log ERROR "创建目录失败"; return 1; }
+        printf "%s\n" "$entry" | sudo tee -a /etc/fstab >/dev/null
+        log DEBUG "[SUCCESS] 已添加UUID条目 ${entry} 至/etc/fstab"
+        return 0
     fi
 }
 
@@ -239,7 +260,7 @@ uninstall_ros() {
 
 # ============================== 主流程控制函数 ==============================
 main() {
-    local device="${1:-}" 
+    # local device="${1:-}" 
     local executor="${2:-bash}"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
@@ -273,11 +294,11 @@ main() {
     case $choice in
         1)  # 全流程安装
             log INFO "启动全自动安装流程"
-            install_ros_core
+            #install_ros_core
             check_filesystem
-            setup_udev_rules
-            configure_rosdep
-            install_project_components
+            #setup_udev_rules
+            #configure_rosdep
+            #install_project_components
             check_fstab_entry
             ;;
         2)  # 仅安装ROS
@@ -291,7 +312,6 @@ main() {
             ;;
         5)  # 卸载清理
             uninstall_ros
-            clean_compilation_cache
             ;;
         q|Q) 
             log INFO "退出安装程序"
@@ -302,6 +322,7 @@ main() {
             continue
             ;;
     esac
+    log INFO "脚本执行结束!"
 
     # # 操作间隔提示
     # read -p "按回车返回主菜单..."
