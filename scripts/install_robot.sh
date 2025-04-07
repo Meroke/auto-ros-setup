@@ -14,7 +14,6 @@ set -euo pipefail
 # ╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚═╝
 #                                       
 # ======================= 版本说明 ========================
-# version 1.0
 #   - 适配ubuntu18.04 
 #         ubuntu20.04
 #   - 实现基础部署功能
@@ -36,6 +35,9 @@ SD_CARD_DEVICE=""
 SD_CARD_MOUNT_POINT="/mnt/sdcard"
 # 子脚本执行器，默认为 bash， 可选 source
 SCRIPT_EXECUTOR="${2:-bash}"
+# 脚本 版本
+VERSION="v0.1.0"
+
 
 start_time=$(date +%s.%3N)
 
@@ -278,7 +280,7 @@ main() {
     # ╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚═╝
     \e[0m"
 
-    echo -e "\e[34m# 文件功能：XIMEI 机器人自动化部署脚本\e[0m"
+    echo -e "\e[34m# 文件功能：XIMEI 机器人自动化部署脚本${VERSION}\e[0m"
     echo -e "\e[34m# ========================================================================\e[0m\n"
 
     # 彩色菜单函数

@@ -275,7 +275,7 @@ downgrades() {
         libpulsedsp=1:13.99.1-1ubuntu3.13 \
         pulseaudio=1:13.99.1-1ubuntu3.13 \
         pulseaudio-module-bluetooth=1:13.99.1-1ubuntu3.13 \
-        pulseaudio-utils=1:13.99.1-1ubuntu3.13 2>&1 | tee -a ${LOG_FILE}
+        pulseaudio-utils=1:13.99.1-1ubuntu3.13 
     
     # 步骤3：安装新依赖包
     log WARN "安装补充开发库..."
@@ -285,7 +285,7 @@ downgrades() {
         libpulse-dev \
         libsdl1.2-dev \
         libsdl1.2debian \
-        libslang2-dev 2>&1 | tee -a ${LOG_FILE}
+        libslang2-dev 
 }
 
 
@@ -352,7 +352,7 @@ build_ros_workspace() {
         
         while true; do
             if rosdep install --from-paths src --ignore-src -y \
-                --rosdistro=${ROS_DISTRO} --skip-keys "turtlebot_bringup kobuki_safety_controller cartographer bfl"; then
+                --rosdistro=${ROS_DISTRO} --skip-keys "turtlebot_bringup kobuki_safety_controller cartographer bfl python_orocos_kdl"; then
                 break
             else
                 ((rosdep_retry++))
@@ -374,11 +374,11 @@ build_ros_workspace() {
         uninstall_ros_packages 
 
         # json
-        sudo ln -s ${CONFIG[deps_dir]}/json /usr/include/json
+        sudo ln -s ${CONFIG[deps_dir]}/json /usr/include/
         sudo cp ${CONFIG[deps_dir]}/libjson.* /usr/lib/
 
         # 检查切换navigation包分支
-        check_and_switch_branch_nav
+        # check_and_switch_branch_nav
 
         log INFO "构建工作空间 (最多重试3次)..."
         local retry_count=0
