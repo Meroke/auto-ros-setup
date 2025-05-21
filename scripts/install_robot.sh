@@ -29,10 +29,6 @@ set -euo pipefail
 # ============================== 配置层 ==============================
 source ./logging_lib.sh
 
-# SD卡设备路径 (动态检测), 初始为空，将在 check_filesystem 中动态赋值
-SD_CARD_DEVICE=""
-# SD卡挂载点，固定为 /mnt/sdcard
-SD_CARD_MOUNT_POINT="/mnt/sdcard"
 # 子脚本执行器，默认为 bash， 可选 source
 SCRIPT_EXECUTOR="${2:-bash}"
 # 脚本 版本
@@ -60,79 +56,6 @@ on_exit() {
 trap on_exit EXIT
 
 # ============================== 工具层 ==============================
-detect_sd_card() {
-    log INFO "动态检测SD卡设备..."
-
-    # 使用键值对格式解析设备信息（移除MOUNTPOINT筛选条件）
-    local device_info=$(lsblk -p -o NAME,FSTYPE,MOUNTPOINT,TYPE -Ppn 2>/dev/null | \
-        awk -F'"' '$4 == "ext4" && ($8 == "part" || $8 == "disk") && $2 ~ /\/dev\/mmcblk1/ {print}')
-    local device_name=$(echo "$device_info" | awk -F'"' '{sub(/^NAME=/,"",$2); print $2}')
-    log DEBUG "device_name = ${device_name}"
-    local device_type=$(echo "$device_info" | awk -F'"' '{sub(/^TYPE=/,"",$8); print $8}')
-
-    if [[ -n "$device_name" && -n "$device_type" ]]; then
-        # 新增二次挂载状态检查逻辑 [4,7](@ref)
-        local current_mount=$(lsblk -no MOUNTPOINT "$device_name" 2>/dev/null)
-        if [[ -n "$current_mount" ]]; then
-            log WARN "设备 ${device_name} 已挂载到 $current_mount，不符合未挂载要求"
-            echo ${device_name}  # 返回设备名
-            return 1
-        else
-            log INFO "检测到未挂载的ext4设备: [类型:${device_type}] ${device_name}"
-            echo ${device_name}  # 返回设备名
-            return 0
-        fi
-    else
-        log WARN "未找到符合要求的ext4设备（需满足以下条件）"
-        log WARN "- 文件系统类型: ext4"
-        log WARN "- 设备类型: 磁盘(disk)或分区(part)"
-        return 1
-    fi
-}
-
-check_filesystem() {
-    log INFO "检查SD卡文件系统..."
-
-    # 动态检测设备路径（新增挂载点状态检查）
-    local target_device
-    if ! target_device=$(detect_sd_card); then
-        # 检查挂载点是否已被其他设备占用
-        if mount | grep -q "${SD_CARD_MOUNT_POINT}"; then
-            log INFO "挂载点 ${SD_CARD_MOUNT_POINT} 已被使用, 继续执行"
-            return 0
-        else
-            log ERROR "终止条件：未找到未挂载设备且挂载点未被使用"
-            exit 1
-        fi
-    fi
-
-    SD_CARD_DEVICE="$target_device"
-    log INFO "检测到设备: ${SD_CARD_DEVICE}"
-
-    # 挂载点状态检查（新增设备与挂载点关联性验证）[2,7](@ref)
-    if mount | grep -q "^${SD_CARD_DEVICE}.*${SD_CARD_MOUNT_POINT}"; then
-        log INFO "设备已正确挂载到 ${SD_CARD_MOUNT_POINT}"
-        return 0
-    elif mount | grep -q "${SD_CARD_MOUNT_POINT}"; then
-        log WARN "挂载点被其他设备占用，建议手动处理冲突"
-        exit 1
-    fi
-
-    # 创建挂载目录（增加权限检查）[7,9](@ref)
-    [[ ! -d "${SD_CARD_MOUNT_POINT}" ]] && \
-        sudo mkdir -p "${SD_CARD_MOUNT_POINT}" && \
-        sudo chmod 755 "${SD_CARD_MOUNT_POINT}"
-
-    # 挂载操作（增加异常捕获）[3,8](@ref)
-    if ! sudo mount -t ext4 -o defaults,nofail "${SD_CARD_DEVICE}" "${SD_CARD_MOUNT_POINT}"; then
-        log ERROR "挂载失败，可能原因："
-        log ERROR "1. 设备格式异常（建议用 fsck 检查）[5,8](@ref)"
-        log ERROR "2. 设备已被其他进程占用（使用 lsof 检查）[4](@ref)"
-        exit 1
-    fi
-}
-
-
 
 run_script() {
     local script_path=$1
@@ -155,78 +78,6 @@ run_script() {
     }
     log INFO "脚本 ${script_name} 执行完成" # 添加执行完成日志
 }
-
-# 函数：创建 udev 规则并重载服务
-setup_udev_rules() {
-    # 写入规则文件
-    log INFO "正在创建 /etc/udev/rules.d/robot.rules..."
-    readonly UBUNTU_VERSION=$(lsb_release -rs)
-
-    log INFO "检测到的 Ubuntu 版本: ${UBUNTU_VERSION}"
-
-    if [ "$UBUNTU_VERSION" = "18.04" ]; then
-        # 如果系统是 ubuntu18.04
-        log INFO "写入 Ubuntu 18.04 对应的 robot.rules 内容..."
-        sudo tee /etc/udev/rules.d/robot.rules >/dev/null <<EOF
-    KERNELS=="1-2.2:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="wheeltec_controller"
-    KERNELS=="1-2.1:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidar"
-    KERNELS=="1-2.3:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidarGS2"
-EOF
-        log INFO "Ubuntu 18.04 对应的 robot.rules 内容已写入。"
-    elif [ "$UBUNTU_VERSION" = "20.04" ]; then
-        # 如果系统是 ubuntu20.04
-        log INFO "写入 Ubuntu 20.04 对应的 robot.rules 内容..."
-        sudo tee /etc/udev/rules.d/robot.rules >/dev/null <<EOF
-    KERNELS=="2-1.1:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="wheeltec_controller"
-    KERNELS=="3-1:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidar"
-    KERNELS=="2-1.2:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidarGS2"
-EOF
-        log INFO "Ubuntu 20.04 对应的 robot.rules 内容已写入。"
-    else
-        # 如果 Ubuntu 版本既不是 18.04 也不是 20.04，则给出提示
-        log WARN "警告：检测到的 Ubuntu 版本 '${UBUNTU_VERSION}' 既不是 18.04 也不是 20.04。"
-        log WARN "      未知的 Ubuntu 版本，将不会自动写入 robot.rules 文件。"
-        log WARN "      请手动检查并配置 /etc/udev/rules.d/robot.rules 文件。"
-    fi
-
-    # 重载 udev 服务
-    log INFO "重载 udev 规则..."
-    sudo service udev reload || { log ERROR "重载服务失败"; exit 1; }
-    log INFO "重启 udev 服务..."
-    sudo service udev restart || { log ERROR "重启服务失败"; exit 1; }
-
-    log INFO "操作完成，请重新插拔设备验证符号链接"
-}
-
-check_fstab_entry() {
-    log INFO "检查SD卡挂载是否持久化..."
-    # 使用UUID替代设备名
-    local device_info=$(lsblk -p -o NAME,FSTYPE,MOUNTPOINT,TYPE,UUID -Ppn 2>/dev/null | \
-        awk -F'"' '$4 == "ext4" && ($8 == "part" || $8 == "disk") && $2 ~ /\/dev\/mmcblk1/ {print}')
-    local device_uuid=$(echo "$device_info" | awk -F'"' '{print $10}')
-    
-    # 检查UUID有效性
-    if [[ -z "$device_uuid" ]]; then
-        log ERROR "未找到符合条件的ext4设备"
-        return 1
-    fi
-    
-    # 构造fstab条目（单行无换行符）
-    local entry="UUID=${device_uuid} ${SD_CARD_MOUNT_POINT} ext4 defaults,noatime 0 0"
-    local regex_pattern=$(echo "${entry}" | sed 's/ /[[:space:]]+/g')
-
-    if sudo grep -qP "^\s*${regex_pattern}\s*$" /etc/fstab 2>/dev/null; then
-        log DEBUG "[SUCCESS] 挂载条目 ${entry} 已存在"
-        return 0
-    else
-        # 创建挂载点目录
-        sudo mkdir -p "${SD_CARD_MOUNT_POINT}" || { log ERROR "创建目录失败"; return 1; }
-        printf "%s\n" "$entry" | sudo tee -a /etc/fstab >/dev/null
-        log DEBUG "[SUCCESS] 已添加UUID条目 ${entry} 至/etc/fstab"
-        return 0
-    fi
-}
-
 # ============================== 模块化功能函数 ==============================
 install_ros_core() {
     log INFO "开始安装ROS核心组件"
@@ -297,11 +148,8 @@ main() {
         1)  # 全流程安装
             log INFO "启动全自动安装流程"
             install_ros_core
-            check_filesystem
-            setup_udev_rules
             configure_rosdep
             install_project_components
-            check_fstab_entry
             ;;
         2)  # 仅安装ROS
             install_ros_core

@@ -4,9 +4,8 @@ source ./logging_lib.sh
 
 # ============================== 配置层 ==============================
 declare -A CONFIG=(
-    [base_dir]="/mnt/sdcard/robot_robot"
-    [deps_dir]="${CONFIG[base_dir]}/cartographer_lib"
-    [ydlidar_sdk]="YDLidar-SDK"
+    [base_dir]="/tmp/dm_ws"
+    [deps_dir]="${CONFIG[base_dir]}"
     [abseil_commit]="215105818dfde3174fe799600bb0f3cae233d0bf"
     [protobuf_version]="v3.6.1"
     [ceres_commit]="db1f5b57a0a42ea87bdb1ada25807e30d341b2ce"
@@ -46,7 +45,7 @@ install_system_deps() {
         # 协议与序列化
         libprotobuf-dev protobuf-compiler
         # 工具库
-        libgflags-dev libgoogle-glog-dev libjsoncpp-dev libcurl4-openssl-dev libcairo2-dev
+        libgflags-dev libgoogle-glog-dev libjsoncpp-dev libjson-c-dev libcurl4-openssl-dev libcairo2-dev
         # 测试框架
         google-mock
         # 系统工具
@@ -57,6 +56,8 @@ install_system_deps() {
         liblapack-dev libsuitesparse-dev libcxsparse3 libgflags-dev libgoogle-glog-dev libgtest-dev
         # gscam
         libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev 
+        # protobuf v3.6.1
+        protobuf-compiler libprotobuf-dev
         # cartographer_ros
         # libgmock-dev
     )
@@ -163,23 +164,23 @@ setup_core_dependencies() {
     # abseil-cpp (保持原路径)
     install_dependency "abseil-cpp" \
         "https://gitee.com/oscstudio/abseil-cpp.git" \
-        "${CONFIG[abseil_commit]}" \
+        "" \
         "-DCMAKE_BUILD_TYPE=Release" \
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON" \
         ".."  # 新增路径参数
 
-    # protobuf (指定特殊路径)
-    install_dependency "protobuf" \
-        "https://gitee.com/mirrors/protobuf.git" \
-        "tags/${CONFIG[protobuf_version]}" \
-        "-Dprotobuf_BUILD_TESTS=OFF" \
-        "-DCMAKE_BUILD_TYPE=Release" \
-        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON" \
-        "../cmake" 
+    # # protobuf (指定特殊路径)
+    # install_dependency "protobuf" \
+    #     "https://gitee.com/mirrors/protobuf.git" \
+    #     "tags/${CONFIG[protobuf_version]}" \
+    #     "-Dprotobuf_BUILD_TESTS=OFF" \
+    #     "-DCMAKE_BUILD_TYPE=Release" \
+    #     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON" \
+    #     "../cmake" 
     # ceres-solver (常规路径)
     install_dependency "ceres-solver" \
         "https://gitee.com/mirrors/ceres-solver.git" \
-        "${CONFIG[ceres_commit]}" \
+        "" \
         "-DBUILD_TESTING=OFF" \
         "-DBUILD_EXAMPLES=OFF" \
         "-DCMAKE_BUILD_TYPE=Release" \
@@ -247,7 +248,7 @@ uninstall_ros_packages() {
 fix_permissions() {
     # 获取当前有效用户名和组
     local current_user=$(id -un)
-    local target_dir="/mnt/sdcard/robot_robot"
+    local target_dir="/tmp/dm_ws"
 
     log INFO "正在修复目录权限：用户=${current_user}, 目录=${target_dir}"
     
@@ -374,8 +375,8 @@ build_ros_workspace() {
         uninstall_ros_packages 
 
         # json
-        sudo ln -s ${CONFIG[deps_dir]}/json /usr/include/
-        sudo cp ${CONFIG[deps_dir]}/libjson.* /usr/lib/
+        # sudo ln -s ${CONFIG[deps_dir]}/json /usr/include/
+        # sudo cp ${CONFIG[deps_dir]}/libjson.* /usr/lib/
 
         # 检查切换navigation包分支
         # check_and_switch_branch_nav
@@ -405,7 +406,7 @@ build_ros_workspace() {
 
 setup_bashrc() {
     local bashrc_file="${HOME}/.bashrc"
-    local source_cmd="source /mnt/sdcard/robot_robot/devel/setup.bash"
+    local source_cmd="source ${CONFIG[deps_dir]}/devel/setup.bash"
     local marker="# Robot workspace setup"
     
     log INFO "检查.bashrc配置..."
@@ -436,7 +437,7 @@ main() {
     install_system_deps
     setup_core_dependencies
     setup_cartographer
-    setup_ydlidar_sdk
+    # setup_ydlidar_sdk
     fix_permissions
     build_ros_workspace
     setup_bashrc
