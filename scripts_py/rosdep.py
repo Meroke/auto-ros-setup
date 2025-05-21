@@ -104,10 +104,10 @@ class RosdepSetup:
             self.patch_files(backup_dir)
             self.initialize_rosdep()
             success = self.update_rosdep(backup_dir)
-            return 0 if success else 1
+            return True
         except Exception as e:
             log("ERROR", f"Setup failed: {str(e)}")
-            return 1
+            return False
 
 if __name__ == "__main__":
     rosdep = RosdepSetup()

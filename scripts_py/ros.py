@@ -44,38 +44,38 @@ deb {self.tsinghua_source_url} {self.ubuntu_codename}-security main restricted u
         subprocess.run(["sudo", "tee", "/etc/apt/sources.list"], input=sources_content.encode(), check=True)
         log("INFO", "Tsinghua source configuration completed")
 
-def check_ros_base(self):
-    """检查ROS基础安装和环境配置"""
-    # 检查ROS安装目录
-    ros_path = f"/opt/ros/{self.ros_version}"
-    if not os.path.exists(ros_path):
-        log("ERROR", f"ROS安装目录不存在: {ros_path}")
-        return False
+    def check_ros_base(self):
+        """检查ROS基础安装和环境配置"""
+        # 检查ROS安装目录
+        ros_path = f"/opt/ros/{self.ros_version}"
+        if not os.path.exists(ros_path):
+            log("ERROR", f"ROS安装目录不存在: {ros_path}")
+            return False
 
-    # 检查并配置bashrc
-    log("INFO", "检查bash环境配置")
-    bashrc_file = os.path.expanduser("~/.bashrc")
-    marker = f"# ROS {self.ros_version} 配置"
-    source_cmd = f"source {ros_path}/setup.bash"
+        # 检查并配置bashrc
+        log("INFO", "检查bash环境配置")
+        bashrc_file = os.path.expanduser("~/.bashrc")
+        marker = f"# ROS {self.ros_version} 配置"
+        source_cmd = f"source {ros_path}/setup.bash"
 
-    try:
-        # 检查配置是否已存在
-        with open(bashrc_file, "r") as f:
-            content = f.read()
-            if source_cmd in content:
-                log("INFO", "ROS环境配置已存在")
-                return True
+        try:
+            # 检查配置是否已存在
+            with open(bashrc_file, "r") as f:
+                content = f.read()
+                if source_cmd in content:
+                    log("INFO", "ROS环境配置已存在")
+                    return True
 
-        # 添加配置
-        log("INFO", f"添加ROS环境配置到 {bashrc_file}")
-        with open(bashrc_file, "a") as f:
-            f.write(f"\n{marker}\n{source_cmd}\n")
-        log("INFO", "ROS环境配置添加成功")
-        return True
+            # 添加配置
+            log("INFO", f"添加ROS环境配置到 {bashrc_file}")
+            with open(bashrc_file, "a") as f:
+                f.write(f"\n{marker}\n{source_cmd}\n")
+            log("INFO", "ROS环境配置添加成功")
+            return True
 
-    except Exception as e:
-        log("ERROR", f"配置.bashrc文件失败: {str(e)}")
-        return False
+        except Exception as e:
+            log("ERROR", f"配置.bashrc文件失败: {str(e)}")
+            return False
 
     def get_ros_ip(self):
         """Get the preferred IP address for ROS configuration."""
@@ -180,10 +180,10 @@ def check_ros_base(self):
             log("INFO", "Installation complete! Environment is active.")
             log("INFO", f"System info: Ubuntu {self.ubuntu_codename.title()} {self.ubuntu_version} | ROS {self.ros_version}")
             self.check_ros_installation()
-            return 0
+            return True
         except Exception as e:
             log("ERROR", f"Setup failed: {str(e)}")
-            return 1
+            return False
 
 if __name__ == "__main__":
     ros_setup = RosSetup()

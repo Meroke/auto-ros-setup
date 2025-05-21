@@ -114,7 +114,7 @@ class RobotSetup:
     def setup_cartographer(self):
         """Install Cartographer core library."""
         log("INFO", "Installing Cartographer core library...")
-        self.install_dependency("cartographer", "https://gitee.com/mirrors/cartographer.git", "master",
+        self.install_dependency("cartographer", "https://gitee.com/mirrors/cartographer.git", "",
                                "-DCMAKE_BUILD_TYPE=Release", "..")
 
     def setup_ydlidar_sdk(self):
