@@ -28,6 +28,7 @@ class RosdepSetup:
 
     def install_rosdep(self):
         """Install appropriate rosdep package based on ROS_DISTRO."""
+        log("INFO",f"ROS_DISTRO: {self.ros_distro}")
         package = "python3-rosdep" if self.ros_distro == "noetic" else "python-rosdep"
         log("INFO", f"Installing {package}")
         subprocess.run(["sudo", "apt", "install", "-y", package], check=True)
@@ -100,7 +101,7 @@ class RosdepSetup:
             self.check_root()
             self.install_rosdep()
             backup_dir = self.create_backup()
-            self.        (backup_dir)
+            self.patch_files(backup_dir)
             self.initialize_rosdep()
             success = self.update_rosdep(backup_dir)
             return 0 if success else 1

@@ -4,10 +4,10 @@ import sys
 import subprocess
 import time
 from logging_lib import log  # 导入日志模块
-import robot_robot
-import rosdep
+from robot_robot import RobotSetup
+from rosdep import RosdepSetup
 from ros_uninstaller import ROSUninstaller
-
+from ros import RosSetup
 # ============================== 配置层 ==============================
 # 脚本执行器，默认使用bash，可通过命令行参数指定
 SCRIPT_EXECUTOR = sys.argv[2] if len(sys.argv) > 2 else "bash"
@@ -51,20 +51,11 @@ def run_script(script_path):
 def check_ros_core():
     """检查ROS核心组件是否正确安装"""
     log("INFO", "检查ROS环境...")
-    # 检查ROS安装目录
-    ros_path = "/opt/ros"
-    if not os.path.exists(ros_path):
-        log("ERROR", "未检测到ROS安装目录 (/opt/ros)，请先安装ROS")
-        return False
-    
-    # 检查ROS发行版目录
-    ros_distros = [d for d in os.listdir(ros_path) if os.path.isdir(os.path.join(ros_path, d))]
-    if not ros_distros:
-        log("ERROR", "ROS安装目录存在但未找到任何ROS发行版")
-        return False
-    
-    log("INFO", f"检测到已安装的ROS发行版: {', '.join(ros_distros)}")
-    return True
+    ros_setup = RosSetup()
+    if ros_setup.setup():
+        log("INFO", "ROS环境配置成功")
+    else:
+        log("ERROR", "ROS环境配置失败")
 
 
 

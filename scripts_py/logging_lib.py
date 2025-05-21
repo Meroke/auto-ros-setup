@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import os
 from datetime import datetime
 
 # 定义日志颜色（使用 ANSI 转义码）
@@ -20,7 +21,7 @@ LOG_LEVELS = {
 }
 
 # 默认日志级别，可通过环境变量 LOG_LEVEL 修改
-current_level = LOG_LEVELS.get(sys.environ.get("LOG_LEVEL", "DEBUG").upper(), 0)
+current_level = LOG_LEVELS.get(os.environ.get("LOG_LEVEL", "DEBUG").upper(), 0)
 
 def log(level, message):
     """
