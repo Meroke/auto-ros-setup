@@ -8,6 +8,7 @@ from robot_robot import RobotSetup
 from rosdep import RosdepSetup
 from ros_uninstaller import ROSUninstaller
 from ros import RosSetup
+from common_install import CommonInstaller
 # ============================== 配置层 ==============================
 # 脚本执行器，默认使用bash，可通过命令行参数指定
 SCRIPT_EXECUTOR = sys.argv[2] if len(sys.argv) > 2 else "bash"
@@ -57,7 +58,14 @@ def check_ros_core():
     else:
         log("ERROR", "ROS环境配置失败")
 
-
+def install_common_tools():
+    """安装常用工具"""
+    log("INFO", "安装常用工具...")
+    common_installer = CommonInstaller()
+    if common_installer.install():
+        log("INFO", "常用工具安装成功")
+    else:
+        log("ERROR", "常用工具安装失败")
 
 def configure_rosdep():
     """配置rosdep依赖管理"""
@@ -114,8 +122,9 @@ def main():
         print("  \033[32m1.\033[0m 全流程安装")
         print("  \033[32m2.\033[0m 安装ROS核心")
         print("  \033[32m3.\033[0m 配置rosdep依赖")
-        print("  \033[32m4.\033[0m 安装robot_robot项目依赖")
-        print("  \033[32m5.\033[0m 完全卸载ros并清理build/devel")
+        print("  \033[32m4.\033[0m 编译dm_ws项目")
+        print("  \033[32m5.\033[0m 普通软件安装 (ssh, vscode)")
+        print("  \033[32m6.\033[0m 完全卸载ros")
         choice = input("➤ ")
 
         # 根据用户选择执行对应操作
@@ -124,6 +133,7 @@ def main():
             check_ros_core()
             configure_rosdep()
             install_project_components()
+            install_common_tools()
         elif choice == "2":
             check_ros_core()
         elif choice == "3":
@@ -131,6 +141,8 @@ def main():
         elif choice == "4":
             install_project_components()
         elif choice == "5":
+            install_common_tools()
+        elif choice == "6":
             uninstall_ros()
         elif choice.lower() == "q":
             log("INFO", "退出安装程序")
@@ -139,8 +151,7 @@ def main():
             print("无效输入，请重新选择")
             continue
 
-        log("INFO", "脚本执行结束!")
-        input("按回车返回主菜单...")
+        input("\n操作完成，按任意键返回主菜单...")
         os.system("clear")
 
 if __name__ == "__main__":

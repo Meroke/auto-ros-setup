@@ -103,6 +103,81 @@ class RobotSetup:
         full_args = list(args) if args and args[-1].startswith("../") else list(args) + [".."]
         self.build_with_ninja(os.path.join(self.CONFIG["deps_dir"], name), *full_args)
 
+    def check_eigen(self):
+        """
+        检查Eigen3库的安装状态并配置软链接
+        返回:
+            str/None: 找到的Eigen3路径或None(如果检查失败)
+        """
+        try:
+            # 检查libeigen3-dev是否已安装
+            dpkg_check = subprocess.run(
+                ["dpkg", "-l", "libeigen3-dev"], 
+                capture_output=True, 
+                text=True
+            )
+            if "ii  libeigen3-dev" not in dpkg_check.stdout:
+                log("WARN", "未检测到libeigen3-dev包，尝试安装...")
+                try:
+                    subprocess.run(
+                        ["sudo", "apt-get", "install", "-y", "libeigen3-dev"],
+                        check=True
+                    )
+                    log("INFO", "libeigen3-dev安装成功")
+                except subprocess.CalledProcessError as e:
+                    log("ERROR", f"安装libeigen3-dev失败: {str(e)}")
+                    return None
+
+            # 查找Eigen3目录
+            eigen_paths = ["/usr/include/eigen3", "/usr/local/include/eigen3"]
+            for path in eigen_paths:
+                if os.path.isdir(path):
+                    log("INFO", f"找到Eigen3目录: {path}")
+                    
+                    # 检查Eigen头文件是否存在
+                    eigen_header = os.path.join(path, "Eigen", "Dense")
+                    if not os.path.exists(eigen_header):
+                        log("ERROR", f"Eigen头文件不完整: {eigen_header} 不存在")
+                        return None
+
+                    try:
+                        # 创建Eigen软链接
+                        eigen_link = "/usr/include/Eigen"
+                        if os.path.exists(eigen_link):
+                            os.remove(eigen_link)
+                        subprocess.run(
+                            ["sudo", "ln", "-sfv", os.path.join(path, "Eigen"), eigen_link],
+                            check=True
+                        )
+
+                        # 创建unsupported软链接
+                        unsupported_link = "/usr/include/unsupported"
+                        if os.path.exists(unsupported_link):
+                            os.remove(unsupported_link)
+                        subprocess.run(
+                            ["sudo", "ln", "-sfv", os.path.join(path, "unsupported"), unsupported_link],
+                            check=True
+                        )
+                        
+                        # 验证软链接
+                        if not os.path.exists(eigen_link) or not os.path.exists(unsupported_link):
+                            log("ERROR", "软链接创建失败")
+                            return None
+                            
+                        log("INFO", "Eigen3配置完成")
+                        return path
+                    except (subprocess.CalledProcessError, OSError) as e:
+                        log("ERROR", f"创建软链接失败: {str(e)}")
+                        return None
+                        
+            log("ERROR", "在标准目录中未找到Eigen3")
+            log("WARN", "请确保正确安装了libeigen3-dev包")
+            return None
+            
+        except Exception as e:
+            log("ERROR", f"检查Eigen3时发生错误: {str(e)}")
+            return None
+        
     def setup_core_dependencies(self):
         """Install core dependencies."""
         self.install_dependency("abseil-cpp", "https://gitee.com/oscstudio/abseil-cpp.git", "",
@@ -110,6 +185,7 @@ class RobotSetup:
         self.install_dependency("ceres-solver", "https://gitee.com/mirrors/ceres-solver.git", "",
                                "-DBUILD_TESTING=OFF", "-DBUILD_EXAMPLES=OFF", "-DCMAKE_BUILD_TYPE=Release",
                                "-DCMAKE_POSITION_INDEPENDENT_CODE=ON", "..")
+        self.check_eigen()
 
     def setup_cartographer(self):
         """Install Cartographer core library."""
@@ -198,14 +274,17 @@ class RobotSetup:
                             f"ros-{os.environ.get('ROS_DISTRO')}-tf",
                             f"ros-{os.environ.get('ROS_DISTRO')}-tf2-geometry-msgs",
                             f"ros-{os.environ.get('ROS_DISTRO')}-angles",
-                            "ros-{os.environ.get('ROS_DISTRO')}-image-transport",
+                            f"ros-{os.environ.get('ROS_DISTRO')}-image-transport",
+                            f"ros-{os.environ.get('ROS_DISTRO')}-move-base-flex",
+                            f"ros-{os.environ.get('ROS_DISTRO')}-costmap-converter",
+                            f"ros-{os.environ.get('ROS_DISTRO')}-libg2o"
                             "liborocos-bfl-dev"], check=True)
             rosdep_retry, max_rosdep_retries = 0, 2
             while True:
                 try:
                     subprocess.run(["rosdep", "install", "--from-paths", "src", "--ignore-src", "-y",
                                     f"--rosdistro={os.environ.get('ROS_DISTRO')}",
-                                    "--skip-keys", "turtlebot_bringup kobuki_safety_controller cartographer bfl python_orocos_kdl"], check=True)
+                                    "--skip-keys", "turtlebot_bringup kobuki_safety_controller cartographer bfl python_orocos_kdl yocs_velocity_smoother"], check=True)
                     break
                 except subprocess.CalledProcessError:
                     rosdep_retry += 1
@@ -266,10 +345,10 @@ class RobotSetup:
             self.setup_bashrc()
             subprocess.run(["sudo", "ldconfig"], check=True)
             log("INFO", f"Installation complete!\nWorkspace path: {self.CONFIG['base_dir']}")
-            return 0
+            return True
         except Exception as e:
             log("ERROR", f"Execution failed: {str(e)}")
-            return 1
+            return False
 
 if __name__ == "__main__":
     setup = RobotSetup()

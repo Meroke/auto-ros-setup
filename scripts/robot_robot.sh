@@ -58,8 +58,8 @@ install_system_deps() {
         libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev 
         # protobuf v3.6.1
         protobuf-compiler libprotobuf-dev
-        # cartographer_ros
-        # libgmock-dev
+        # cartographer_ros 测试模块
+        libgmock-dev
     )
     # 如果ROS_DISTRO为noetic，则安装python3-sphinx，python3-wstool
     if [ "$ROS_DISTRO" = "noetic" ]; then
