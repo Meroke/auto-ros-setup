@@ -2,6 +2,8 @@
 set -euo pipefail
 source ./logging_lib.sh
 
+# 生效ros环境变量
+source ~/.bashrc
 
 # 定义操作目录和目标文件列表
 # 如果ROS_DISTRO为noetic，则使用/usr/lib/python3/dist-packages

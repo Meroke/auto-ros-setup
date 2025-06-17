@@ -179,7 +179,8 @@ EOF
         sudo tee /etc/udev/rules.d/robot.rules >/dev/null <<EOF
     KERNELS=="2-1.1:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="wheeltec_controller"
     KERNELS=="3-1:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidar"
-    KERNELS=="2-1.2:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidarGS2"
+    KERNELS=="2-1.2:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="Mppcamera"
+    KERNELS=="2-1.3:1.0", MODE:="0777", GROUP:="dialout", SYMLINK+="ydlidarGS2"
 EOF
         log INFO "Ubuntu 20.04 对应的 robot.rules 内容已写入。"
     else
