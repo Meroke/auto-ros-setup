@@ -233,6 +233,29 @@ install_ros_core() {
     log INFO "开始安装ROS核心组件"
     run_script "${script_dir}/ros.sh" "$SCRIPT_EXECUTOR"
     [[ $? -ne 0 ]] && log ERROR "ROS安装失败" && return 1
+
+    # 安装后，加载环境变量以供后续步骤使用
+    log INFO "加载ROS环境变量..."
+    local ros_distro
+    local ubuntu_version
+    ubuntu_version=$(lsb_release -rs)
+
+    if [[ "$ubuntu_version" == "18.04" ]]; then
+        ros_distro="melodic"
+    elif [[ "$ubuntu_version" == "20.04" ]]; then
+        ros_distro="noetic"
+    else
+        log WARN "未知的 Ubuntu 版本 ($ubuntu_version)，无法加载ROS环境。"
+        return 1
+    fi
+
+    if [ -n "$ros_distro" ] && [ -f "/opt/ros/${ros_distro}/setup.bash" ]; then
+        source "/opt/ros/${ros_distro}/setup.bash"
+        log INFO "ROS (distro: ${ros_distro}) 环境已加载到当前会话。"
+    else
+        log ERROR "ROS setup.bash 文件未找到，后续步骤可能失败。"
+        return 1
+    fi
     log INFO "ROS核心安装完成"
 }
 
